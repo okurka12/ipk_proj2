@@ -14,7 +14,9 @@
 #include "server.h"
 #include "utils.h"
 
-
+/**
+ * @return socket file descriptor on success, -1 on error
+*/
 static int create_udp_welcome_socket() {
     int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd == -1) {
@@ -23,6 +25,10 @@ static int create_udp_welcome_socket() {
     }
     return sockfd;
 }
+
+/**
+ * @return socket file descriptor on success, -1 on error
+*/
 static int create_tcp_welcome_socket() {
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd == -1) {
@@ -70,16 +76,49 @@ static int create_epoll() {
 }
 
 /**
+ * Adds `sockfd` to `epollfd` and puts `p` into the event's data
  * @return 0 on success, 1 on error
 */
-static int add_sock_to_epoll(int sockfd, int epollfd) {
-    struct epoll_event sock_event = { .events = EPOLLIN };
+static int add_sock_to_epoll(int sockfd, int epollfd, void *p) {
+    logf(DEBUG, "adding %d to epoll", sockfd);
+
+    struct epoll_event sock_event = {
+        .events = EPOLLIN,
+        .data.fd = sockfd,
+        .data.ptr = p
+    };
+
+
     int rc = epoll_ctl(epollfd, EPOLL_CTL_ADD, sockfd, &sock_event);
     if (rc == -1) {
         log(ERROR, "couldn't add socket to epoll");
         perror("epoll_ctl");
         return 1;
     }
+    return 0;
+}
+
+/**
+ * return 0 on success else 1
+*/
+static int handle_socket_event(struct epoll_event *event, int tcpfd, int udpfd) {
+
+    int eventfd = event->data.fd;
+
+    if (event->events & EPOLLERR) {
+        log(ERROR, "EPOLLERR event");
+        return 1;
+    }
+
+    if (eventfd == tcpfd) {
+        log(DEBUG, "tcp welcome socket event");
+        accept(tcpfd, NULL, 0);
+
+    }
+    if (eventfd == udpfd) {
+        log(DEBUG, "udp welcome socket event");
+    }
+
     return 0;
 }
 
@@ -100,10 +139,17 @@ int start_server(struct args *args) {
     int epollfd = create_epoll();
 
     /* add sockets to epoll */
-    rc = add_sock_to_epoll(udp_sock, epollfd);
+    rc = add_sock_to_epoll(udp_sock, epollfd, NULL);
     if (rc == 1) return 1;
-    rc = add_sock_to_epoll(tcp_sock, epollfd);
+    rc = add_sock_to_epoll(tcp_sock, epollfd, NULL);
     if (rc == 1) return 1;
+
+    rc = listen(tcp_sock, INT32_MAX);
+    if (rc == -1) {
+        log(ERROR, "error with listen");
+        perror("listen");
+        return 1;
+    }
 
     struct epoll_event events[1];
 
@@ -120,9 +166,12 @@ int start_server(struct args *args) {
         }
         if (rc == 1) {
             log(DEBUG, "socket event");
+            rc = handle_socket_event(events, tcp_sock, udp_sock);
+            if (rc == 1) return 1;
         }
+        /* something to do whether it was a socket event or timeout */
     }
 
 
-    return 0;
+    return rc;
 }
