@@ -27,7 +27,7 @@ int parse_arguments(int argc, char **argv, struct args *args) {
     int rc = 0;
 
     args->laddr = mstrdup("0.0.0.0");
-    if (args->laddr == NULL)
+    if (args->laddr == NULL) return 1;
     args->port = 4567;
     args->udp_retransmissions = 3;
     args->udp_timeout = 250;
@@ -46,7 +46,7 @@ int parse_arguments(int argc, char **argv, struct args *args) {
             }
             break;
         case 'p':
-            rc = sscanf(optarg, "%hu", &(args->port));
+            rc = sscanf(optarg, "%hu", &args->port);
             if (rc != 1) {
                 logf(ERROR, "invalid value %s for option p", optarg);
                 return 1;
