@@ -1,0 +1,10 @@
+*.o
+*.bin
+
+# symlink to the first project directory
+first_project
+
+# the main binary
+ipk24chat-server
+
+valgrind.txt
