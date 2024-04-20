@@ -20,17 +20,13 @@
 #include <unistd.h>  // close
 #include <stdlib.h>  // free
 #include <stdbool.h>
-#include <threads.h>  // thrd_join, mtx_unlock...
-#include <sys/socket.h>  // shutdown
+// #include <threads.h>  // thrd_join, mtx_unlock...
+// #include <sys/socket.h>  // shutdown
 
 #include "gexit.h"
 #include "utils.h"
-#include "msg.h"
-#include "udp_sender.h"
-#include "udp_confirmer.h"  // udp_cnfm_t
-#include "tcpcl.h"  // tcp_send
 
-extern mtx_t gcl;
+// extern mtx_t gcl;
 
 /* how long should the array of the pointers be */
 #define NUM_PTRS 256
@@ -80,6 +76,7 @@ void gexit_regptr(void ***ptr_arr, unsigned int *len, void *p) {
     }
 
     /* if we got here, that means the array is not long enough */
+    log(DEBUG, "array not long enough, reallocating");
     *ptr_arr = realloc(*ptr_arr, sizeof(void *) * (*len + NUM_PTRS));
     if (*ptr_arr == NULL) {
         return;
@@ -104,13 +101,15 @@ void gexit_unregptr(void ***ptrs, unsigned int *len, void *p) {
     for (unsigned int i = 0; i < *len; i++) {
         if ((*ptrs)[i] == p) {
             (*ptrs)[i] = NULL;
+            return;
         }
     }
 }
 
 
 /**
- * Private: free all the registered pointers
+ * Private: free all the registered pointers and also free the array used
+ * to store them
  * @param ptr_arr pointer to array of pointers (void ***)
  * @param len pointer to the length of the array
 */
@@ -125,73 +124,24 @@ void gexit_free_all(void ***ptrs, unsigned int *len) {
 
 
 void gexit(enum gexit_statement statement, void *p) {
-    static int sockfd = -1;
     static int epollfd = -1;
-    static conf_t *confp = NULL;
-    static udp_cnfm_data_t *cnfmdp = NULL;
 
     /* array of the pointers to free */
     static void **ptrs = NULL;
     static unsigned int ptrs_len = 0;
 
-    static thrd_t listener_thread_id = 0;
-    static mtx_t *listener_lock = NULL;
-    static bool *listener_stop_flag = NULL;
-
     switch (statement) {
 
-    case GE_SET_CONFP:
-        confp = (conf_t *)p;
-        break;
-
-    case GE_SET_FD:
-        sockfd = *((int *)p);
-        break;
-
     case GE_REGISTER_PTR:
-        mtx_lock(&gcl);
+        // mtx_lock(&gcl);
         gexit_regptr(&ptrs, &ptrs_len, p);
-        mtx_unlock(&gcl);
-        break;
-
-    case GE_SET_LISTHR:
-        listener_thread_id = *((thrd_t *)p);
-        break;
-
-    case GE_SET_LISMTX:
-        listener_lock = (mtx_t *)p;
-        break;
-
-    case GE_UNSET_LISTNR:
-        listener_lock = NULL;
-        listener_thread_id = thrd_error;
-        listener_stop_flag = NULL;
-        break;
-
-    case GE_SET_STPFLG:
-        listener_stop_flag = (bool *)p;
+        // mtx_unlock(&gcl);
         break;
 
     case GE_UNREG_PTR:
-        mtx_lock(&gcl);
+        // mtx_lock(&gcl);
         gexit_unregptr(&ptrs, &ptrs_len, p);
-        mtx_unlock(&gcl);
-        break;
-
-    case GE_UNSET_FD:
-        sockfd = -1;
-        break;
-
-    case GE_UNSET_CONFP:
-        confp = NULL;
-        break;
-
-    case GE_SET_CNFMDP:
-        cnfmdp = (udp_cnfm_data_t *)p;
-        break;
-
-    case GE_UNSET_CNFMDP:
-        cnfmdp = NULL;
+        // mtx_unlock(&gcl);
         break;
 
     case GE_SET_EPOLLFD:
@@ -206,30 +156,6 @@ void gexit(enum gexit_statement statement, void *p) {
         log(INFO, "the program was interrupted, exiting");
         int rc = 0;
 
-        msg_t last_msg;
-        last_msg.type = MTYPE_BYE;
-        last_msg.id = LAST_MSGID;
-        if (confp != NULL and cnfmdp != NULL) {
-            udp_sender_send(&last_msg, confp, cnfmdp);
-        }
-        if (confp != NULL and confp->tp == TCP) {
-            tcp_send(confp, &last_msg);  // success or not? idc, i tried...
-            shutdown(sockfd, SHUT_RDWR);
-        }
-
-        bool c1 = listener_lock != NULL;
-        bool c2 = listener_stop_flag != NULL;
-        bool c3 = listener_thread_id != thrd_error;
-        if (c1 and c2 and c3) {
-            log(DEBUG, "gexit: letting listener finish");
-            mtx_lock(listener_lock);
-            *listener_stop_flag = true;
-            mtx_unlock(listener_lock);
-            log(DEBUG, "gexit: waiting for listener thread...");
-            thrd_join(listener_thread_id, NULL);
-        }
-
-        if (sockfd != -1) close(sockfd);
         if (epollfd != -1) close(epollfd);
         gexit_free_all(&ptrs, &ptrs_len);
         exit(rc);
