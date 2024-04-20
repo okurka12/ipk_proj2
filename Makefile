@@ -20,7 +20,7 @@ RESULT_BINARY=ipk24chat-server
 
 CC=gcc
 
-CFLAGS=-Wall -Wextra -pedantic -std=c11 -Og $(LOGLEVEL) $(DNDEBUG) $(ASAN)
+CFLAGS=-Wall -Wextra -pedantic -std=c11 -g -Og $(LOGLEVEL) $(DNDEBUG) $(ASAN)
 
 LDFLAGS=$(ASAN) # -lpthread
 
@@ -36,7 +36,7 @@ clean:
 .PHONY: remake
 remake: clean ALL
 
-main.o: main.c
+main.o: main.c argparse.h gexit.h utils.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 argparse.o: argparse.c argparse.h mmal.h gexit.h utils.h

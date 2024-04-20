@@ -46,6 +46,10 @@ int parse_arguments(int argc, char **argv, struct args *args) {
 
 }
 
+void free_argstruct(struct args *args) {
+    mfree(args->laddr);
+}
+
 
 // bool args_ok(int argc, char *argv[], conf_t *conf) {
 

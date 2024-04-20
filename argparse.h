@@ -35,4 +35,9 @@ struct args {
 */
 int parse_arguments(int argc, char **argv, struct args *args);
 
+/**
+ * frees the contents of struct args
+*/
+void free_argstruct(struct args *args);
+
 #endif  // ifndef _A_R_G_P_A_R_S_E_H_
