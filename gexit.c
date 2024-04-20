@@ -59,7 +59,7 @@ void gexit_regptr(void ***ptr_arr, unsigned int *len, void *p) {
     }
 
     /* case: first call to gexit_regptr - allocate a ptr_arr */
-    if (len == 0) {
+    if (*len == 0) {
         *ptr_arr = malloc(sizeof(void *) * NUM_PTRS);
         if (*ptr_arr == NULL) return;
         *len = NUM_PTRS;
