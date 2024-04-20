@@ -13,6 +13,35 @@
 
 #include "server.h"
 #include "utils.h"
+#include "mmal.h"
+#include "client.h"
+
+static int epollfd = -1;
+static int add_sock_to_epoll(int sockfd, int epollfd, void *p);
+
+/**
+ * accepts the new client and adds it to epoll, (it will eventually add him
+ * to some list of clients too)
+ * @return 0 on success else 1
+*/
+static int handle_tcp_welcome_socket(int tcpsock) {
+    struct sockaddr_in addr;
+    socklen_t addrlen = sizeof(addr);  // unsigned int
+    int clientfd;
+    clientfd = accept(tcpsock, (struct sockaddr *)&addr, &addrlen);
+    if (clientfd == -1) {
+        log(ERROR, "error with accept");
+        perror("accept");
+        return 1;
+    }
+    struct client *client_data = client_ctor(clientfd, T_TCP, &addr);
+    if (client_data == NULL) {
+        log(ERROR, MEMFAIL_MSG);
+        return 1;
+    }
+    int rc = add_sock_to_epoll(clientfd, epollfd, (void *)client_data);
+    return rc;
+}
 
 /**
  * @return socket file descriptor on success, -1 on error
@@ -75,17 +104,32 @@ static int create_epoll() {
     return epollfd;
 }
 
+struct sockdata *sockdata_ctor(int fd, void *data) {
+    struct sockdata *s = mmal(sizeof(struct sockdata));
+    s->data = data;
+    s->fd = fd;
+    return s;
+}
+
+void sockdata_dtor(struct sockdata **sockdata) {
+    mfree(*sockdata);
+    *sockdata = NULL;
+}
+
 /**
- * Adds `sockfd` to `epollfd` and puts `p` into the event's data
+ * Adds `sockfd` to `epollfd` and puts pointer to `struct sockdata`
+ * (defined in `server.h`) to the `event->data->ptr` field. This struct
+ * will contain `sockfd` and `p`
  * @return 0 on success, 1 on error
 */
 static int add_sock_to_epoll(int sockfd, int epollfd, void *p) {
     logf(DEBUG, "adding %d to epoll", sockfd);
 
+    struct sockdata *sockdata = sockdata_ctor(sockfd, p);
+
     struct epoll_event sock_event = {
         .events = EPOLLIN,
-        .data.fd = sockfd,
-        .data.ptr = p
+        .data.ptr = sockdata
     };
 
 
@@ -103,7 +147,8 @@ static int add_sock_to_epoll(int sockfd, int epollfd, void *p) {
 */
 static int handle_socket_event(struct epoll_event *event, int tcpfd, int udpfd) {
 
-    int eventfd = event->data.fd;
+    /* what would life be without a little of type unsafety */
+    int eventfd = ((struct sockdata *)event->data.ptr)->fd;
 
     if (event->events & EPOLLERR) {
         log(ERROR, "EPOLLERR event");
@@ -112,7 +157,7 @@ static int handle_socket_event(struct epoll_event *event, int tcpfd, int udpfd) 
 
     if (eventfd == tcpfd) {
         log(DEBUG, "tcp welcome socket event");
-        accept(tcpfd, NULL, 0);
+        handle_tcp_welcome_socket(tcpfd);
 
     }
     if (eventfd == udpfd) {
@@ -136,7 +181,7 @@ int start_server(struct args *args) {
     if (rc == 1) return 1;
     rc = bind_socket(tcp_sock, args);
     if (rc == 1) return 1;
-    int epollfd = create_epoll();
+    epollfd = create_epoll();  // global variable
 
     /* add sockets to epoll */
     rc = add_sock_to_epoll(udp_sock, epollfd, NULL);

@@ -18,13 +18,13 @@ LOGLEVEL=-DLOGLEVEL=DEBUG
 
 RESULT_BINARY=ipk24chat-server
 
-CC=tcc
+CC=gcc
 
 CFLAGS=-Wall -Wextra -pedantic -std=c11 -g -Og $(LOGLEVEL) $(DNDEBUG) $(ASAN)
 
 LDFLAGS=$(ASAN) # -lpthread
 
-MODULES=main.o argparse.o mmal.o gexit.o server.o
+MODULES=main.o argparse.o mmal.o gexit.o server.o client.o
 
 .PHONY: ALL
 ALL: $(RESULT_BINARY)
@@ -48,8 +48,10 @@ mmal.o: mmal.c mmal.h gexit.h
 gexit.o: gexit.c gexit.h utils.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
+client.o: client.c mmal.h gexit.h client.h utils.h
+	$(CC) $(CFLAGS) -c -o $@ $<
 
-server.o: server.c server.h argparse.h utils.h
+server.o: server.c server.h argparse.h utils.h mmal.h gexit.h client.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 
