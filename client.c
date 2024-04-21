@@ -13,8 +13,17 @@
 #include <stdlib.h>
 #include <arpa/inet.h>  // inet_ntoa
 #include <netinet/in.h>  // struct sockaddr_in
+#include <unistd.h>  // close
+#include <string.h>
 #include "client.h"
 #include "utils.h"
+
+/* buffer for the whole tcp payload */
+const unsigned int tcp_bufsize = 1048576;
+
+/* buffer to copy a single message from the payload into */
+const unsigned int tcp_single_msg_bufsize = 2048;
+
 
 struct client *client_ctor(
     int sockfd, enum tproto protocol, struct sockaddr_in *addr
@@ -36,18 +45,79 @@ struct client *client_ctor(
     c->msgcount = 0;
     c->sockfd = sockfd;
     c->tproto = protocol;
+    c->active = true;
     c->todo = 0; // todo
     logf(DEBUG, "%s:%hu connected (tcp)", c->address, c->port);
     return c;
 }
 
-int client_recv(struct client *client);
+static int client_recv_tcp(struct client *client) {
+
+    char *buf_whole = calloc(tcp_bufsize, 1);
+    char *buf_single = calloc(tcp_single_msg_bufsize, 1);
+    if (buf_whole == NULL or buf_single == NULL) {
+        log(ERROR, MEMFAIL_MSG);
+        return 1;
+    }
+
+    int received_bytes = recv(client->sockfd, buf_whole, tcp_bufsize, 0);
+    if (received_bytes == -1) {
+        logf(ERROR, "recv error with %s:%hu", client->address, client->port);
+        perror("recv");
+        client->active = false;
+        return 0;  // return 0 or 1? :hmm
+    }
+    if (received_bytes == 0) {
+        logf(INFO, "orderly shutdown from %s:%hu",
+            client->address, client->port);
+        logf(DEBUG, "another recv returns %ld", recv(client->sockfd, buf_whole, 9999, 0));
+        shutdown(client->sockfd, SHUT_RDWR);
+        close(client->sockfd);
+        client->sockfd = -1;
+        client->active = false;
+        free(buf_whole);
+        free(buf_single);
+        return 0;
+    }
+
+    /* current position in buf_whole */
+    char *buf = buf_whole;
+    bool done = false;
+    while (not done) {
+        char *msg_end = strstr(buf, "\r\n");
+        if (msg_end == NULL and strlen(buf) > 0) {
+            logf(DEBUG, "incomplete message: '%s'", buf);
+            break;
+        }
+        if (msg_end == NULL) break;
+        unsigned int msg_len = msg_end - buf;
+        memcpy(buf_single, buf, msg_len);  // + 2 ?
+        logf(DEBUG, "Processing message: '%s'", buf_single);
+        /* todo: processing */
+        memset(buf_single, 0, msg_len);
+        buf = buf + msg_len + 2;
+    }
+
+    free(buf_whole);
+    free(buf_single);
+
+    return 0;
+}
+
+int client_recv(struct client *client) {
+    if (client->tproto == T_TCP) {
+        return client_recv_tcp(client);
+    } else {
+        return 1; /* not implemented (todo) */
+    }
+}
 
 
 int client_send(struct client *client, int message, bool auth);
 
 
 void client_dtor(struct client **client) {
+    /* dont close the socket here, sockdata_dtor will do that */
     if (*client == NULL) return;
     struct client *c = *client;
     free(c->address);

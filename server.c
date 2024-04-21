@@ -137,8 +137,17 @@ struct sockdata *sockdata_ctor(int fd, struct client *data) {
 }
 
 void sockdata_dtor(struct sockdata **sockdata) {
-    client_dtor(&((*sockdata)->data));
-    free(*sockdata);
+    if (sockdata == NULL) return;
+    if (*sockdata == NULL) return;
+    struct sockdata *sd = *sockdata;
+
+    /* if sd->data->sockfd is -1, that means it was closed in the client 7
+    module when recv returned 0 */
+    if (sd->fd != -1 and sd->data != NULL and sd->data->sockfd != -1) {
+        close(sd->fd);
+    }
+    client_dtor(&sd->data);
+    free(sd);
     *sockdata = NULL;
 }
 
@@ -192,9 +201,11 @@ static int handle_socket_event(struct epoll_event *event, int tcpfd, int udpfd) 
         log(DEBUG, "tcp welcome socket event");
         handle_tcp_welcome_socket(tcpfd);
 
-    }
-    if (eventfd == udpfd) {
+    } else if (eventfd == udpfd) {
         log(DEBUG, "udp welcome socket event");
+        /* todo: recvfrom here */
+    } else {
+        client_recv(((struct sockdata *)event->data.ptr)->data);
     }
 
     return 0;
@@ -257,12 +268,22 @@ int start_server(struct args *args) {
             log(INFO, "server done");
             break;
         }
+        // getchar();
     }
 
     clist_remove(udp_sock);
     close(udp_sock);
     clist_remove(tcp_sock);
     close(tcp_sock);
+
+    /* remove client structures one by one (possibly do another actions?) */
+    unsigned int len = 0;
+    struct sockdata **carr = clist_get_arr(&len);
+    for (unsigned int i = 0; i < len; i++) {
+        if (carr[i] != NULL) {
+            clist_remove(carr[i]->fd);
+        }
+    }
 
     close(epollfd);
     clist_free();

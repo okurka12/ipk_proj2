@@ -36,19 +36,21 @@ clean:
 .PHONY: remake
 remake: clean ALL
 
-main.o: main.c
+main.o: main.c argparse.h utils.h server.h argparse.h client.h iota.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-argparse.o: argparse.c
+argparse.o: argparse.c argparse.h utils.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-client.o: client.c
+client.o: client.c client.h utils.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-server.o: server.c
+server.o: server.c server.h argparse.h client.h utils.h client.h \
+clientlist.h server.h argparse.h client.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-clientlist.o: clientlist.c
+clientlist.o: clientlist.c clientlist.h server.h argparse.h client.h \
+client.h server.h argparse.h client.h utils.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 

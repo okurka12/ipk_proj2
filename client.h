@@ -30,6 +30,7 @@ struct client {
     unsigned int msgcount;
     char *dname;
     bool authenticated;
+    bool active;
 
     /* queue for unconfirmed udp messages*/
     int todo;
