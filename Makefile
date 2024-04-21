@@ -24,7 +24,7 @@ CFLAGS=-Wall -Wextra -pedantic -std=c11 -g -Og $(LOGLEVEL) $(DNDEBUG) $(ASAN)
 
 LDFLAGS=$(ASAN) # -lpthread
 
-MODULES=main.o argparse.o server.o client.o clientlist.o
+MODULES=main.o argparse.o server.o client.o clientlist.o msg.o tcp_parse.o tcp_render.o
 
 .PHONY: ALL
 ALL: $(RESULT_BINARY)
@@ -36,22 +36,31 @@ clean:
 .PHONY: remake
 remake: clean ALL
 
-main.o: main.c argparse.h utils.h server.h argparse.h client.h iota.h
+main.o: main.c argparse.h utils.h server.h argparse.h client.h iota.h msg.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 argparse.o: argparse.c argparse.h utils.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-client.o: client.c client.h utils.h
+client.o: client.c client.h utils.h tcp_parse.h tcp_render.h msg.h iota.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 server.o: server.c server.h argparse.h client.h utils.h client.h \
-clientlist.h server.h argparse.h client.h
+clientlist.h server.h argparse.h client.h msg.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clientlist.o: clientlist.c clientlist.h server.h argparse.h client.h \
-client.h server.h argparse.h client.h utils.h
+client.h server.h argparse.h client.h utils.h msg.h
 	$(CC) $(CFLAGS) -c -o $@ $<
+
+msg.o: msg.c msg.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+tcp_parse.o: tcp_parse.c tcp_parse.h msg.h utils.h iota.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+tcp_render.o: tcp_render.c msg.h utils.h
+
 
 
 $(RESULT_BINARY): $(MODULES)

@@ -10,6 +10,7 @@
 #include <stdbool.h>
 // #include <sys/socket.h>  // struct sockaddr
 #include <netinet/in.h>  // struct sockaddr_in
+#include "msg.h"
 
 
 #ifndef _C_L_I_E_N_T_H_
@@ -31,6 +32,8 @@ struct client {
     char *dname;
     bool authenticated;
     bool active;
+
+    const char *channel;
 
     /* always either an empty string or an incomplete message, never NULL */
     char *tcp_incomplete_buf;
@@ -60,7 +63,7 @@ int client_recv(struct client *client);
  * do nothing
  * @return 0 on success, else 1
 */
-int client_send(struct client *client, int message, bool auth);
+int client_send(struct client *client, msg_t *msg, bool auth);
 
 
 /**

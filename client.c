@@ -17,6 +17,9 @@
 #include <string.h>
 #include "client.h"
 #include "utils.h"
+#include "tcp_parse.h"
+#include "iota.h"
+#include "tcp_render.h"
 
 /* buffer for the whole tcp payload */
 const unsigned int tcp_bufsize = 1048576;
@@ -52,8 +55,59 @@ struct client *client_ctor(
         log(ERROR, MEMFAIL_MSG);
         return NULL;
     }
+    c->channel = DEFAULT_CHANNEL;
     logf(DEBUG, "%s:%hu connected (tcp)", c->address, c->port);
     return c;
+}
+
+/**
+ * return true if the user's credentials are valid
+*/
+bool authenticate_user(const char *username, const char *secret) {
+    logf(DEBUG, "authenticating user %s with secret=%s", username, secret);
+    return true;
+}
+
+/**
+ * Process a single message from client that we already know is complete
+ * (ends with CRLF)
+*/
+static int client_process_tcp_message(struct client *client, char *message) {
+    bool err = false;
+    msg_t *msg = tcp_parse_any(message, &err);
+    if (msg == NULL and err) {
+        log(ERROR, "couldn't parse message due to internal error");
+        return 1;
+    }
+    switch (msg->type)
+    {
+    case MTYPE_MSG:
+        printf("RECV %s:%hu | MSG DisplayName=%s Content=%s\n",
+            client->address, client->port, msg->dname, msg->content);
+        /* todo: broadcast it */
+        break;
+
+    case MTYPE_AUTH:
+        printf("RECV %s:%hu | AUTH Username=%s Displayname=%s Secret=%s\n",
+            client->address, client->port, msg->username, msg->dname,
+            msg->secret);
+        if (authenticate_user(msg->username, msg->secret)) {
+            msg_t reply_ok = {
+                .type = MTYPE_REPLY,
+                .result = 1,
+                .content = "auth success"
+        };
+            client_send(client, &reply_ok, false);
+        }
+        break;
+
+    default:
+        logf(WARNING, "unhandled message type 0x%hhx", msg->type);
+        break;
+    }
+    fflush(stdout);
+    fflush(stderr);
+    return 0;
 }
 
 static int client_recv_tcp(struct client *client) {
@@ -109,17 +163,26 @@ static int client_recv_tcp(struct client *client) {
     bool done = false;
     while (not done) {
         char *msg_end = strstr(buf, "\r\n");
+
+        /* current message doesnt end with CRLF*/
         if (msg_end == NULL and strlen(buf) > 0) {
             logf(DEBUG, "incomplete message: '%s'", buf);
             free(client->tcp_incomplete_buf);
             client->tcp_incomplete_buf = strdup(buf);
             break;
         }
+
+        /* we reached the end of the buffer */
         if (msg_end == NULL) break;
+
+        /* copy the message to a separate buffer `buf_single` */
         unsigned int msg_len = msg_end - buf;
         memcpy(buf_single, buf, msg_len);  // + 2 ?
         logf(DEBUG, "Processing message: '%s'", buf_single);
-        /* todo: processing */
+        /* main processing function */
+        client_process_tcp_message(client, buf_single);
+
+        /* zero out buf_single, move `buf` to the start of a new message */
         memset(buf_single, 0, msg_len);
         buf = buf + msg_len + 2;
     }
@@ -139,7 +202,30 @@ int client_recv(struct client *client) {
 }
 
 
-int client_send(struct client *client, int message, bool auth);
+int client_send(struct client *client, msg_t *msg, bool auth) {
+    if (not client->active) {
+        return 0;
+    }
+    if (not client->authenticated and auth) {
+        return 0;
+    }
+    if (client->tproto == T_TCP) {
+        char *rendered = tcp_render(msg);
+        if (rendered == NULL) {
+            log(ERROR, "couldn't render message");
+            return 1;
+        }
+        ssize_t rc = send(client->sockfd, rendered, strlen(rendered), 0);
+        if (rc == -1) {
+            log(ERROR, "send error");
+            perror("send");
+            client->active = false;
+            return 0;
+        }
+    }
+
+    return 1;
+}
 
 
 void client_dtor(struct client **client) {
