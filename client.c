@@ -47,6 +47,11 @@ struct client *client_ctor(
     c->tproto = protocol;
     c->active = true;
     c->todo = 0; // todo
+    c->tcp_incomplete_buf = strdup("");
+    if (c->tcp_incomplete_buf == NULL) {
+        log(ERROR, MEMFAIL_MSG);
+        return NULL;
+    }
     logf(DEBUG, "%s:%hu connected (tcp)", c->address, c->port);
     return c;
 }
@@ -59,8 +64,27 @@ static int client_recv_tcp(struct client *client) {
         log(ERROR, MEMFAIL_MSG);
         return 1;
     }
+    unsigned int offset = 0;
 
-    int received_bytes = recv(client->sockfd, buf_whole, tcp_bufsize, 0);
+    /* did we receive incomplete message the last time? */
+    if (strlen(client->tcp_incomplete_buf) > 0) {
+
+        /* copy it to the main buffer and call recv with offset */
+        strncpy(buf_whole, client->tcp_incomplete_buf, tcp_bufsize);
+        offset = strlen(client->tcp_incomplete_buf);
+
+        /* now we can get rid of the incomplete buffer */
+        free(client->tcp_incomplete_buf);
+        client->tcp_incomplete_buf = strdup("");
+        if (client->tcp_incomplete_buf == NULL) {
+            log(ERROR, MEMFAIL_MSG);
+            return 1;
+        }
+    }
+
+    int received_bytes =
+        recv(client->sockfd, buf_whole + offset, tcp_bufsize - offset, 0);
+
     if (received_bytes == -1) {
         logf(ERROR, "recv error with %s:%hu", client->address, client->port);
         perror("recv");
@@ -70,7 +94,6 @@ static int client_recv_tcp(struct client *client) {
     if (received_bytes == 0) {
         logf(INFO, "orderly shutdown from %s:%hu",
             client->address, client->port);
-        logf(DEBUG, "another recv returns %ld", recv(client->sockfd, buf_whole, 9999, 0));
         shutdown(client->sockfd, SHUT_RDWR);
         close(client->sockfd);
         client->sockfd = -1;
@@ -82,11 +105,14 @@ static int client_recv_tcp(struct client *client) {
 
     /* current position in buf_whole */
     char *buf = buf_whole;
+
     bool done = false;
     while (not done) {
         char *msg_end = strstr(buf, "\r\n");
         if (msg_end == NULL and strlen(buf) > 0) {
             logf(DEBUG, "incomplete message: '%s'", buf);
+            free(client->tcp_incomplete_buf);
+            client->tcp_incomplete_buf = strdup(buf);
             break;
         }
         if (msg_end == NULL) break;
@@ -122,6 +148,7 @@ void client_dtor(struct client **client) {
     struct client *c = *client;
     free(c->address);
     free(c->dname);
+    free(c->tcp_incomplete_buf);
     free(c);
     *client = NULL;
 }

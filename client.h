@@ -32,6 +32,9 @@ struct client {
     bool authenticated;
     bool active;
 
+    /* always either an empty string or an incomplete message, never NULL */
+    char *tcp_incomplete_buf;
+
     /* queue for unconfirmed udp messages*/
     int todo;
 };
