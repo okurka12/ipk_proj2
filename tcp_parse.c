@@ -210,6 +210,7 @@ msg_t *tcp_parse_any(char *data, bool *err) {
     regfree(&reply_pat);
     regfree(&err_pat);
     regfree(&bye_pat);
+    regfree(&auth_pat);
 
     return output;
 }
