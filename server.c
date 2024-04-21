@@ -11,10 +11,10 @@
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <signal.h>
+#include <stdlib.h>
 
 #include "server.h"
 #include "utils.h"
-#include "mmal.h"
 #include "client.h"
 #include "clientlist.h"
 
@@ -129,7 +129,7 @@ static int create_epoll() {
 }
 
 struct sockdata *sockdata_ctor(int fd, struct client *data) {
-    struct sockdata *s = mmal(sizeof(struct sockdata));
+    struct sockdata *s = malloc(sizeof(struct sockdata));
     s->data = data;
     s->fd = fd;
     return s;
@@ -137,7 +137,7 @@ struct sockdata *sockdata_ctor(int fd, struct client *data) {
 
 void sockdata_dtor(struct sockdata **sockdata) {
     client_dtor(&((*sockdata)->data));
-    mfree(*sockdata);
+    free(*sockdata);
     *sockdata = NULL;
 }
 

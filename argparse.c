@@ -10,23 +10,25 @@
  * argparse.c - implementation of argparse.h
 */
 
+#define _POSIX_C_SOURCE 200809L  // for strdup
+
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include <unistd.h>  // getopt
 #include <getopt.h>
 extern char *optarg;
 
 #include "argparse.h"
-#include "mmal.h"
 #include "utils.h"
 
 int parse_arguments(int argc, char **argv, struct args *args) {
 
     int rc = 0;
 
-    args->laddr = mstrdup("0.0.0.0");
+    args->laddr = strdup("0.0.0.0");
     if (args->laddr == NULL) return 1;
     args->port = 4567;
     args->udp_retransmissions = 3;
@@ -38,8 +40,8 @@ int parse_arguments(int argc, char **argv, struct args *args) {
         switch (c)
         {
         case 'l':
-            mfree(args->laddr);
-            args->laddr = mstrdup(optarg);
+            free(args->laddr);
+            args->laddr = strdup(optarg);
             if (args->laddr == NULL) {
                 log(ERROR, MEMFAIL_MSG);
                 return 1;
@@ -86,5 +88,5 @@ int parse_arguments(int argc, char **argv, struct args *args) {
 }
 
 void free_argstruct(struct args *args) {
-    mfree(args->laddr);
+    free(args->laddr);
 }

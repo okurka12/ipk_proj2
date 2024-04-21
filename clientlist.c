@@ -6,11 +6,11 @@
 **     2024     **
 *****************/
 
+#include <stdlib.h>
 #include <stddef.h>
 #include "clientlist.h"
 #include "client.h"
 #include "server.h"  // struct sockdata
-#include "mmal.h"
 #include "utils.h"
 
 const unsigned int clist_initial_length = 512;
@@ -31,7 +31,7 @@ int clist_add(struct sockdata *client) {
 
     /* case: first time call to clist module */
     if (clist_arr == NULL) {
-        clist_arr = mmal(clist_initial_length * sizeof(struct sockdata *));
+        clist_arr = malloc(clist_initial_length * sizeof(struct sockdata *));
         if (clist_arr == NULL) {
             log(ERROR, MEMFAIL_MSG);
             return 1;
@@ -52,7 +52,7 @@ int clist_add(struct sockdata *client) {
 
     log(DEBUG, "clist array full, reallocating");
     unsigned int original_length = clist_arrlen;
-    clist_arr = mrealloc(clist_arr, 2 * clist_arrlen);
+    clist_arr = realloc(clist_arr, 2 * clist_arrlen);
     if (clist_arr == NULL) {
         clist_arrlen = 0;
         return 1;
@@ -78,7 +78,7 @@ void clist_remove(int sockfd) {
 }
 
 void clist_free() {
-    mfree(clist_arr);
+    free(clist_arr);
     clist_arr = NULL;
     clist_arrlen = 0;
 }

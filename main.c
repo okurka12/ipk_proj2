@@ -8,7 +8,6 @@
 
 
 #include "argparse.h"
-#include "gexit.h"
 #include "utils.h"
 #include "server.h"
 #include "iota.h"
@@ -33,6 +32,5 @@ int main(int argc, char **argv) {
 
     cleanup:
     free_argstruct(&args);
-    gexit(GE_FREE_RES, NULL);
     return rc;
 }

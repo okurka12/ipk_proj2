@@ -24,7 +24,7 @@ CFLAGS=-Wall -Wextra -pedantic -std=c11 -g -Og $(LOGLEVEL) $(DNDEBUG) $(ASAN)
 
 LDFLAGS=$(ASAN) # -lpthread
 
-MODULES=main.o argparse.o mmal.o gexit.o server.o client.o clientlist.o
+MODULES=main.o argparse.o server.o client.o clientlist.o
 
 .PHONY: ALL
 ALL: $(RESULT_BINARY)
@@ -36,27 +36,19 @@ clean:
 .PHONY: remake
 remake: clean ALL
 
-main.o: main.c argparse.h gexit.h utils.h server.h iota.h client.h
+main.o: main.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-argparse.o: argparse.c argparse.h mmal.h gexit.h utils.h
+argparse.o: argparse.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-mmal.o: mmal.c mmal.h gexit.h
+client.o: client.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-gexit.o: gexit.c gexit.h utils.h
+server.o: server.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-client.o: client.c mmal.h gexit.h client.h utils.h
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-server.o: server.c server.h argparse.h utils.h mmal.h gexit.h client.h \
-clientlist.h
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-clientlist.o: clientlist.c clientlist.h server.h argparse.h client.h client.h \
-server.h argparse.h client.h mmal.h gexit.h utils.h
+clientlist.o: clientlist.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 
