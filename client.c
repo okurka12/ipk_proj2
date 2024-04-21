@@ -45,4 +45,11 @@ int client_recv(struct client *client);
 int client_send(struct client *client, int message, bool auth);
 
 
-void client_dtor(struct client **client);
+void client_dtor(struct client **client) {
+    if (*client == NULL) return;
+    struct client *c = *client;
+    mfree(c->address);
+    mfree(c->dname);
+    mfree(c);
+    *client = NULL;
+}

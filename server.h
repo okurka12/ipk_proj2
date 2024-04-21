@@ -7,6 +7,7 @@
 *****************/
 
 #include "argparse.h"  // struct args
+#include "client.h"
 
 #ifndef _S_E_R_V_E_R_H_
 #define _S_E_R_V_E_R_H_
@@ -18,13 +19,13 @@
  */
 struct sockdata {
     int fd;
-    void *data;
+    struct client *data;
 };
 
 /**
  * allocates + initializes struct sockdata
 */
-struct sockdata *sockdata_ctor(int fd, void *data);
+struct sockdata *sockdata_ctor(int fd, struct client *data);
 
 /**
  * frees struct sockdata + sets the pointer to null

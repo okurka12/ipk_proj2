@@ -10,14 +10,38 @@
 #include <netinet/in.h>  // struct sockaddr_in
 #include <sys/epoll.h>
 #include <sys/socket.h>
+#include <signal.h>
 
 #include "server.h"
 #include "utils.h"
 #include "mmal.h"
 #include "client.h"
+#include "clientlist.h"
 
 static int epollfd = -1;
 static int add_sock_to_epoll(int sockfd, int epollfd, void *p);
+
+
+
+/**
+ * always returns false until it's called with true,
+ * then it always returns true
+*/
+static bool stopper(bool stop) {
+    static bool output = false;
+    if (stop) {
+        output = true;
+    }
+    return output;
+}
+
+/**
+ * SIGINT handler to register
+*/
+static void sigint_handler(int sig) {
+    (void)sig;
+    stopper(true);
+}
 
 /**
  * accepts the new client and adds it to epoll, (it will eventually add him
@@ -104,7 +128,7 @@ static int create_epoll() {
     return epollfd;
 }
 
-struct sockdata *sockdata_ctor(int fd, void *data) {
+struct sockdata *sockdata_ctor(int fd, struct client *data) {
     struct sockdata *s = mmal(sizeof(struct sockdata));
     s->data = data;
     s->fd = fd;
@@ -112,6 +136,7 @@ struct sockdata *sockdata_ctor(int fd, void *data) {
 }
 
 void sockdata_dtor(struct sockdata **sockdata) {
+    client_dtor(&((*sockdata)->data));
     mfree(*sockdata);
     *sockdata = NULL;
 }
@@ -119,7 +144,8 @@ void sockdata_dtor(struct sockdata **sockdata) {
 /**
  * Adds `sockfd` to `epollfd` and puts pointer to `struct sockdata`
  * (defined in `server.h`) to the `event->data->ptr` field. This struct
- * will contain `sockfd` and `p`
+ * will contain `sockfd` and `p`. It also adds te struct to the clientlist
+ * module
  * @return 0 on success, 1 on error
 */
 static int add_sock_to_epoll(int sockfd, int epollfd, void *p) {
@@ -139,6 +165,12 @@ static int add_sock_to_epoll(int sockfd, int epollfd, void *p) {
         perror("epoll_ctl");
         return 1;
     }
+
+    rc = clist_add(sockdata);
+    if (rc == 1) {
+        return 1;
+    }
+
     return 0;
 }
 
@@ -172,6 +204,11 @@ int start_server(struct args *args) {
     logf(INFO, "starting server at %s:%hu", args->laddr, args->port);
 
     int rc;
+
+    if (signal(SIGINT, sigint_handler) == SIG_ERR) {
+        log(ERROR, "couldn't register signal handler");
+        return 1;
+    }
 
     /* create and bind sockets, create epoll */
     int udp_sock = create_udp_welcome_socket();
@@ -215,7 +252,16 @@ int start_server(struct args *args) {
             if (rc == 1) return 1;
         }
         /* something to do whether it was a socket event or timeout */
+        if (stopper(false)) {
+            log(INFO, "server done");
+            break;
+        }
     }
+
+    clist_remove(udp_sock);
+    clist_remove(tcp_sock);
+
+    clist_free();
 
 
     return rc;
