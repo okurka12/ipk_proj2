@@ -79,3 +79,10 @@ ssize_t mgetline(char **lineptr, size_t *n, FILE *stream) {
     }
     return rc;
 }
+
+void *mrealloc(void *p, size_t size) {
+    gexit(GE_UNREG_PTR, p);
+    void *new_ptr = realloc(p, size);
+    gexit(GE_REGISTER_PTR, new_ptr);
+    return new_ptr;
+}
