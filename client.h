@@ -63,7 +63,7 @@ int client_recv(struct client *client);
  * do nothing
  * @return 0 on success, else 1
 */
-int client_send(struct client *client, msg_t *msg, bool auth);
+int client_send(struct client *client, const msg_t *msg, bool auth);
 
 
 /**

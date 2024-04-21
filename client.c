@@ -20,6 +20,7 @@
 #include "tcp_parse.h"
 #include "iota.h"
 #include "tcp_render.h"
+#include "server.h"  // broadcast
 
 /* buffer for the whole tcp payload */
 const unsigned int tcp_bufsize = 1048576;
@@ -85,6 +86,7 @@ static int client_process_tcp_message(struct client *client, char *message) {
         printf("RECV %s:%hu | MSG DisplayName=%s Content=%s\n",
             client->address, client->port, msg->dname, msg->content);
         /* todo: broadcast it */
+        server_broadcast(msg, client->channel, client->sockfd);
         break;
 
     case MTYPE_AUTH:
@@ -96,8 +98,17 @@ static int client_process_tcp_message(struct client *client, char *message) {
                 .type = MTYPE_REPLY,
                 .result = 1,
                 .content = "auth success"
-        };
+            };
             client_send(client, &reply_ok, false);
+            free(client->dname);
+            client->dname = strdup(msg->dname);
+            client->authenticated = true;
+            if (client->dname == NULL) {
+                log(ERROR, MEMFAIL_MSG);
+                return 1;
+            }
+            server_broadcast_join(
+                client->dname, DEFAULT_CHANNEL, client->sockfd);
         }
         break;
 
@@ -105,6 +116,7 @@ static int client_process_tcp_message(struct client *client, char *message) {
         logf(WARNING, "unhandled message type 0x%hhx", msg->type);
         break;
     }
+    msg_dtor(msg);
     fflush(stdout);
     fflush(stderr);
     return 0;
@@ -202,13 +214,15 @@ int client_recv(struct client *client) {
 }
 
 
-int client_send(struct client *client, msg_t *msg, bool auth) {
+int client_send(struct client *client, const msg_t *msg, bool auth) {
     if (not client->active) {
         return 0;
     }
     if (not client->authenticated and auth) {
         return 0;
     }
+    logf(DEBUG, "sending %s to %s:%hu (%s)", mtype_str(msg->type),
+        client->address, client->port, client->dname);
     if (client->tproto == T_TCP) {
         char *rendered = tcp_render(msg);
         if (rendered == NULL) {
@@ -216,6 +230,7 @@ int client_send(struct client *client, msg_t *msg, bool auth) {
             return 1;
         }
         ssize_t rc = send(client->sockfd, rendered, strlen(rendered), 0);
+        free(rendered); rendered = NULL;
         if (rc == -1) {
             log(ERROR, "send error");
             perror("send");

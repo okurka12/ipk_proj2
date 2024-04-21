@@ -23,6 +23,47 @@ static int epollfd = -1;
 static int add_sock_to_epoll(int sockfd, int epollfd, void *p);
 
 
+void server_broadcast_join(
+    const char *dname, const char *channel, int whence
+) {
+
+    /* should we send join broadcast to the client who joined? */
+    #ifdef BROAD
+    int from_who = -1;  // no client has this sockfd - send to all
+    (void)whence;
+    #else  // ifdef BROAD
+    int from_who = whence;
+    #endif  // ifdef BROAD
+
+    char content[100];
+    snprintf(content, 100, "%s joined %s.", dname, channel);
+    msg_t msg = { .type = MTYPE_MSG, .dname = "Server", .content = content };
+    server_broadcast(&msg, channel, from_who);
+
+}
+
+
+void server_broadcast(const msg_t *msg, const char *channel, int whence) {
+
+    unsigned int len = 0;
+    struct sockdata **clients = clist_get_arr(&len);
+    logf(DEBUG, "cleints %p", (void *)clients);
+    logf(DEBUG, "whence %d", whence);
+    for (unsigned int i = 0; i < len; i++) {
+        if (clients[i] == NULL) continue;
+        if (clients[i]->data == NULL) continue;  // it is a welcome socket
+
+        logf(DEBUG, "cleints[%u]=%p", i, (void *)clients[i]);
+        logf(DEBUG, "cleints[%u]->fd=%d", i, clients[i]->fd);
+        logf(DEBUG, "cleints[%u]->data=%p", i, (void *)clients[i]->data);
+        logf(DEBUG, "cleints[%u]->data->channel=%p", i, (void *)clients[i]->data->channel);
+
+        bool channel_matches = are_equal(clients[i]->data->channel, channel);
+        if (clients[i]->fd != whence and channel_matches){
+            client_send(clients[i]->data, msg, true);
+        }
+    }
+}
 
 /**
  * always returns false until it's called with true,
@@ -256,7 +297,7 @@ int start_server(struct args *args) {
             perror("epoll_wait");
         }
         if (rc == 0) {
-            log(DEBUG, "epoll_waid timed out");
+            // log(DEBUG, "epoll_waid timed out");
         }
         if (rc == 1) {
             log(DEBUG, "socket event");

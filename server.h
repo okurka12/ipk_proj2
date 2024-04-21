@@ -38,4 +38,19 @@ void sockdata_dtor(struct sockdata **sockdata);
 */
 int start_server(struct args *args);
 
+/**
+ * broadcasts `msg` to all clients in `channel`, except the client
+ * with file descriptor `whence`
+*/
+void server_broadcast(const msg_t *msg, const char *channel, int whence);
+
+/**
+ * broadcasts that `dname` joined to `channel` to all clients in `channel`
+ *
+ * if BROAD macro is defined, broadcasts to all clients in channel,
+ * including client with file descriptor `whence`
+*/
+void server_broadcast_join(const char *dname, const char *channel, int whence);
+
+
 #endif  // ifndef _S_E_R_V_E_R_H_
