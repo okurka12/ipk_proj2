@@ -11,7 +11,8 @@
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <signal.h>
-#include <stdlib.h>
+#include <stdlib.h>  // malloc
+#include <unistd.h>  // close
 
 #include "server.h"
 #include "utils.h"
@@ -259,10 +260,12 @@ int start_server(struct args *args) {
     }
 
     clist_remove(udp_sock);
+    close(udp_sock);
     clist_remove(tcp_sock);
+    close(tcp_sock);
 
+    close(epollfd);
     clist_free();
-
 
     return rc;
 }
