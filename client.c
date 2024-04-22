@@ -106,6 +106,11 @@ static int client_process_message(struct client *client, char *message) {
             client->address, client->port, msg->dname, msg->content);
         /* todo: broadcast it */
         server_broadcast(msg, client->channel, client->sockfd);
+
+        /* update client displayname */
+        free(client->dname);
+        client->dname = msg->dname;
+        msg->dname = NULL;  // so its not freed by msg_dtor
         break;
 
     case MTYPE_AUTH:
