@@ -158,6 +158,11 @@ msg_t *tcp_parse_any(char *data, bool *err) {
 
     const size_t nmatch = 4;  // like above, max three fields (auth)
     regmatch_t rms[nmatch];
+
+    /* initialize values so that valgrind calms down */
+    rms[0].rm_eo = -1;
+    rms[0].rm_so = -1;
+
     msg_t *output = msg_ctor();
     check_null(output);
     output->type = MTYPE_UNKNOWN;
