@@ -67,6 +67,14 @@ char *tcp_render(const msg_t *msg) {
             strcpy(output, "bYe\r\n");
             break;
 
+        case MTYPE_ERR:
+            assert(msg->content != NULL);
+            assert(msg->dname != NULL);
+            rc = snprintf(output, TCP_RENDER_BUFSIZE, "eRr frOm %s is %s\r\n",
+                msg->dname, msg->content);
+            warn(rc, TCP_RENDER_BUFSIZE);
+            break;
+
         default:
             logf(WARNING, "unhandled type %s", mtype_str(msg->type));
             break;

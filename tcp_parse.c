@@ -213,5 +213,14 @@ msg_t *tcp_parse_any(char *data, bool *err) {
         check_null(output->dname);
     }
 
+    /** assert the whole match starts at index 0
+     * this prevents server from accepting something like
+     * `mmsg from h is hello`
+     */
+
+    if (rms[0].rm_so != 0) {
+        output->type = MTYPE_UNKNOWN;
+    }
+
     return output;
 }

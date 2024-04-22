@@ -18,6 +18,7 @@
 #include "utils.h"
 #include "client.h"
 #include "clientlist.h"
+#include "iota.h"
 
 static int epollfd = -1;
 static int add_sock_to_epoll(int sockfd, int epollfd, void *p);
@@ -25,7 +26,7 @@ static int add_sock_to_epoll(int sockfd, int epollfd, void *p);
 void server_broadcast_leave(const char *dname, const char *channel) {
     char content[100];
     snprintf(content, 100, "%s has left %s.", dname, channel);
-    msg_t msg = { .type = MTYPE_MSG, .dname = "Server", .content = content };
+    msg_t msg = { .type = MTYPE_MSG, .dname = SDNAME, .content = content };
     server_broadcast(&msg, channel, -1);
 }
 

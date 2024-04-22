@@ -33,5 +33,8 @@
 
 #define DEFAULT_CHANNEL "general"
 
+/* server display name */
+#define SDNAME "Server"
+
 
 #endif  // ifndef _I_O_T_A_H_

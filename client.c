@@ -69,6 +69,8 @@ static void client_set_inactive(struct client *client) {
     client->sockfd = -1;
     client->active = false;
     server_broadcast_leave(client->dname, client->channel);
+    logf(INFO, "%s:%hu (%s) disconnected", client->address, client->port,
+        client->dname);
 }
 
 /**
@@ -97,6 +99,13 @@ static int client_process_message(struct client *client, char *message) {
         log(WARNING, "processing UDP messages not implemented yet");
         return 0;
     }
+
+    msg_t bye_msg = { .type = MTYPE_BYE };
+    msg_t parse_err_msg = {
+        .type = MTYPE_ERR,
+        .dname = SDNAME,
+        .content = "couldn't parse your message"
+    };
 
     /* this code should be ok for both TCP and UDP */
     switch (msg->type)
@@ -164,6 +173,17 @@ static int client_process_message(struct client *client, char *message) {
         printf("RECV %s:%hu | BYE\n", client->address, client->port);
         logf(INFO, "BYE from %s:%hu (%s)", client->address, client->port,
             client->dname);
+        client_set_inactive(client);
+        break;
+
+    case MTYPE_UNKNOWN:;  // supress gcc warning with the :;
+        client_send(client, &parse_err_msg, false);
+        client_send(client, &bye_msg, false);
+        client_set_inactive(client);
+        break;
+
+    case MTYPE_ERR:;
+        client_send(client, &bye_msg, false);
         client_set_inactive(client);
         break;
 
@@ -286,7 +306,7 @@ int client_send(struct client *client, const msg_t *msg, bool auth) {
         if (rc == -1) {
             log(ERROR, "send error");
             perror("send");
-            client->active = false;
+            client_set_inactive(client);
             return 0;
         }
     }
