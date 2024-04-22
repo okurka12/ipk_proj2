@@ -125,6 +125,7 @@ static int client_process_message(struct client *client, char *message) {
 
     case MTYPE_CONFIRM:
         /* todo */
+        printf("RECV %s:%hu | CONFIRM\n", client->address, client->port);
         break;
 
     case MTYPE_MSG:
@@ -160,6 +161,8 @@ static int client_process_message(struct client *client, char *message) {
         break;
 
     case MTYPE_JOIN:;  // supress gcc warning with the :;
+        printf("RECV %s:%hu | JOIN DisplayName=%s ChannelID=%s\n",
+            client->address, client->port, msg->dname, msg->chid);
 
         /* send reply ok */
         msg_t reply_ok = {
@@ -195,6 +198,9 @@ static int client_process_message(struct client *client, char *message) {
         break;
 
     case MTYPE_UNKNOWN:;  // supress gcc warning with the :;
+        logf(WARNING, "received unknown message from %s:%hu (%s)",
+            client->address, client->port, msg->dname);
+
         client_send(client, &parse_err_msg, false);
         client_send(client, &bye_msg, false);
         client_set_inactive(client);
@@ -203,6 +209,7 @@ static int client_process_message(struct client *client, char *message) {
     case MTYPE_ERR:;
         client_send(client, &bye_msg, false);
         client_set_inactive(client);
+        printf("RECV %s:%hu | ERR\n", client->address, client->port);
         break;
 
     default:
@@ -395,6 +402,10 @@ void client_dtor(struct client **client) {
 /******************************************************************************/
 
 int client_udp_auth(struct client *client, msg_t *authmsg) {
+    printf("RECV %s:%hu | AUTH Username=%s Displayname=%s Secret=%s\n",
+            client->address, client->port, authmsg->username, authmsg->dname,
+            authmsg->secret);
+
     if (authenticate_user(authmsg->username, authmsg->secret)) {
         msg_t reply_ok = {
             .type = MTYPE_REPLY,
