@@ -13,6 +13,15 @@ Here are limitations of the current implementation that I know of.
 
 - UDP retransmitting
 - sweep inactive clients between socket events (`clientlist.c`)
+- content logging for outgoing messages
+
+## [0.9.2] - 2024-04-22
+
+Version as of commit `f6e5ad4a9fb80d0f3633ab139a7228748842c276`
+
+### Fixes
+
+- add missing `printf` statements for message logging in `client.c`
 
 ## [0.9.1] - 2024-04-22
 
