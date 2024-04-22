@@ -7,7 +7,7 @@
 ##################
 
 # log level (DEBUG, INFO, WARNING, ERROR, FATAL)
-LOGLEVEL=-DLOGLEVEL=DEBUG
+LOGLEVEL=-DLOGLEVEL=WARNING
 
 # uncomment this to disable all logging
 # DNDEBUG=-DNDEBUG
@@ -16,16 +16,16 @@ LOGLEVEL=-DLOGLEVEL=DEBUG
 # ASAN=-fsanitize=address
 
 # uncomment this so that server.c broadcasts join even to the person joined
-# DBROAD=-DBROAD
+DBROAD=-DBROAD
 
 RESULT_BINARY=ipk24chat-server
 
 CC=gcc
 
-CFLAGS=-Wall -Wextra -pedantic -std=c11 -g -Og $(LOGLEVEL) $(DNDEBUG) \
+CFLAGS=-Wall -Wextra -pedantic -std=c11 -O3 $(LOGLEVEL) $(DNDEBUG) \
 $(ASAN) $(DBROAD)
 
-LDFLAGS=$(ASAN) # -lpthread
+LDFLAGS=$(ASAN)
 
 MODULES=main.o argparse.o server.o client.o clientlist.o msg.o tcp_parse.o \
 tcp_render.o udp_parse.o udp_marker.o udp_render.o
