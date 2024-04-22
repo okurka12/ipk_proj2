@@ -15,6 +15,7 @@
 /**
  * Parses UDP message, expects that the buffer is large enough (larger than
  * the message itself) and that its contens after the message are zeroed
+ * @return msg_t * or NULL on failure
 */
 msg_t *udp_parse(char *buf);
 

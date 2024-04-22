@@ -92,18 +92,22 @@ msg_t *udp_parse(char *buf) {
         return msg;
     }
 
-    char *rendered = tcp_render(msg);
-    check_null(rendered);
-    size_t rendered_len = strlen(rendered);
-    rendered[rendered_len - 2] = '\0';  // strip CRLF
-    bool err = false;
-    msg_t *parsed_rendered_msg = tcp_parse_any(rendered, &err);
-    if (parsed_rendered_msg == NULL and err) {
-        log(ERROR, "internal error in tcp_parse");
-        return NULL;
-    }
-    if (parsed_rendered_msg->type == MTYPE_UNKNOWN) {
-        msg->type = MTYPE_UNKNOWN;
+    char *rendered = NULL;
+    msg_t *parsed_rendered_msg = NULL;
+    if (msg->type != MTYPE_CONFIRM) {
+        rendered = tcp_render(msg);
+        check_null(rendered);
+        size_t rendered_len = strlen(rendered);
+        rendered[rendered_len - 2] = '\0';  // strip CRLF
+        bool err = false;
+        parsed_rendered_msg = tcp_parse_any(rendered, &err);
+        if (parsed_rendered_msg == NULL and err) {
+            log(ERROR, "internal error in tcp_parse");
+            return NULL;
+        }
+        if (parsed_rendered_msg->type == MTYPE_UNKNOWN) {
+            msg->type = MTYPE_UNKNOWN;
+        }
     }
 
     logf(DEBUG, "parsed %s", mtype_str(msg->type));
