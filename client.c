@@ -61,6 +61,16 @@ struct client *client_ctor(
     return c;
 }
 
+static void client_set_inactive(struct client *client) {
+    if (not client->active) return;
+
+    shutdown(client->sockfd, SHUT_RDWR);
+    close(client->sockfd);
+    client->sockfd = -1;
+    client->active = false;
+    server_broadcast_leave(client->dname, client->channel);
+}
+
 /**
  * return true if the user's credentials are valid
 */
@@ -112,6 +122,13 @@ static int client_process_tcp_message(struct client *client, char *message) {
         }
         break;
 
+    case MTYPE_BYE:
+        printf("RECV %s:%hu | BYE\n", client->address, client->port);
+        logf(INFO, "BYE from %s:%hu (%s)", client->address, client->port,
+            client->dname);
+        client_set_inactive(client);
+        break;
+
     default:
         logf(WARNING, "unhandled message type 0x%hhx", msg->type);
         break;
@@ -160,10 +177,7 @@ static int client_recv_tcp(struct client *client) {
     if (received_bytes == 0) {
         logf(INFO, "orderly shutdown from %s:%hu",
             client->address, client->port);
-        shutdown(client->sockfd, SHUT_RDWR);
-        close(client->sockfd);
-        client->sockfd = -1;
-        client->active = false;
+        client_set_inactive(client);
         free(buf_whole);
         free(buf_single);
         return 0;

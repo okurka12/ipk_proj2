@@ -50,7 +50,14 @@ void server_broadcast(const msg_t *msg, const char *channel, int whence);
  * if BROAD macro is defined, broadcasts to all clients in channel,
  * including client with file descriptor `whence`
 */
-void server_broadcast_join(const char *dname, const char *channel, int whence);
+void server_broadcast_join(
+    const char *dname, const char *channel, int whence
+);
+
+/**
+ * like `server_broadcast_join`
+*/
+void server_broadcast_leave(const char *dname, const char *channel);
 
 
 #endif  // ifndef _S_E_R_V_E_R_H_
