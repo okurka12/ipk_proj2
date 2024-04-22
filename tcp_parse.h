@@ -57,8 +57,9 @@ bool tcp_parse_reply(char *data, char **content, bool *err);
  * parses any message from server and prints it to the corresponding
  * output
  * expects `data` without trailing CRLF
- * @return corresponding msg_t structure, or NULL if message was invalid
- * or NULL if an internal error occured, in which case sets `err` to true
+ * @return corresponding msg_t structure (if message was invalid, the msg_t
+ * will have type MTYPE_UNKNOWN) or return NULL if an internal error occured,
+ * in which case sets `err` to true
  * @note it modifies the data buffer for its own purposes (it adds
  * zero bytes to separate the fields)
 */
