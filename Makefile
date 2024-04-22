@@ -40,7 +40,8 @@ clean:
 .PHONY: remake
 remake: clean ALL
 
-main.o: main.c argparse.h utils.h server.h argparse.h client.h iota.h msg.h
+main.o: main.c argparse.h utils.h server.h argparse.h client.h iota.h msg.h \
+tcp_parse.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 argparse.o: argparse.c argparse.h utils.h

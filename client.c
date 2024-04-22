@@ -83,13 +83,22 @@ bool authenticate_user(const char *username, const char *secret) {
  * Process a single message from client that we already know is complete
  * (ends with CRLF)
 */
-static int client_process_tcp_message(struct client *client, char *message) {
+static int client_process_message(struct client *client, char *message) {
     bool err = false;
-    msg_t *msg = tcp_parse_any(message, &err);
-    if (msg == NULL and err) {
-        log(ERROR, "couldn't parse message due to internal error");
-        return 1;
+
+    msg_t *msg = NULL;
+    if (client->tproto == T_TCP) {
+        msg = tcp_parse_any(message, &err);
+        if (msg == NULL and err) {
+            log(ERROR, "couldn't parse message due to internal error");
+            return 1;
+        }
+    } else {
+        log(WARNING, "processing UDP messages not implemented yet");
+        return 0;
     }
+
+    /* this code should be ok for both TCP and UDP */
     switch (msg->type)
     {
     case MTYPE_MSG:
@@ -206,7 +215,7 @@ static int client_recv_tcp(struct client *client) {
         memcpy(buf_single, buf, msg_len);  // + 2 ?
         logf(DEBUG, "Processing message: '%s'", buf_single);
         /* main processing function */
-        client_process_tcp_message(client, buf_single);
+        client_process_message(client, buf_single);
 
         /* zero out buf_single, move `buf` to the start of a new message */
         memset(buf_single, 0, msg_len);
