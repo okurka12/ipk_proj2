@@ -28,7 +28,7 @@ $(ASAN) $(DBROAD)
 LDFLAGS=$(ASAN) # -lpthread
 
 MODULES=main.o argparse.o server.o client.o clientlist.o msg.o tcp_parse.o \
-tcp_render.o
+tcp_render.o udp_parse.o udp_marker.o
 
 .PHONY: ALL
 ALL: $(RESULT_BINARY)
@@ -41,7 +41,7 @@ clean:
 remake: clean ALL
 
 main.o: main.c argparse.h utils.h server.h argparse.h client.h iota.h msg.h \
-tcp_parse.h
+tcp_parse.h udp_marker.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 argparse.o: argparse.c argparse.h utils.h
@@ -52,7 +52,8 @@ server.h argparse.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 server.o: server.c server.h argparse.h client.h utils.h client.h \
-clientlist.h server.h argparse.h client.h msg.h iota.h
+clientlist.h server.h argparse.h client.h msg.h iota.h udp_parse.h \
+udp_marker.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clientlist.o: clientlist.c clientlist.h server.h argparse.h client.h \
@@ -66,6 +67,14 @@ tcp_parse.o: tcp_parse.c tcp_parse.h msg.h utils.h iota.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 tcp_render.o: tcp_render.c msg.h utils.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+udp_parse.o: udp_parse.c udp_parse.h msg.h msg.h utils.h tcp_parse.h msg.h \
+tcp_render.h msg.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+udp_marker.o: udp_marker.c udp_marker.h- utils.h
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 
 
