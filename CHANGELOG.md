@@ -12,7 +12,20 @@ Here are limitations of the current implementation that I know of.
 ### To do
 
 - UDP Functionality
-- Error state handling (there is none yet)
+- sweep inactive clients between socket events
+
+## [0.5.0] - 2024-04-22
+
+Version as of commit `cf5ea6e3c62f5fa9a45c45766e3cbed1b4be2e55`
+
+### Added
+
+- Error state handling
+
+### Fixed
+
+- Better TCP parsing - no leading/trailing invalid characters are allowed
+now
 
 ## [0.4.0] - 2024-04-22
 
