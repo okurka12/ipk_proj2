@@ -142,6 +142,10 @@ void tcp_parse_free_resources() {
 // bool tcp_parse_rep
 msg_t *tcp_parse_any(char *data, bool *err) {
 
+    /* we're going to insert zero bytes so we need to save the strlen for
+    later */
+    size_t data_len = strlen(data);
+
     /* lets hope SIGINT wont come between regcomp and regfree :shrug: */
     logf(DEBUG, "parsing: '%s'", data);
 
@@ -219,6 +223,15 @@ msg_t *tcp_parse_any(char *data, bool *err) {
      */
 
     if (rms[0].rm_so != 0) {
+        output->type = MTYPE_UNKNOWN;
+    }
+
+    /**
+     * assert it matched the string to the end
+     * this prevents server from accepting something like
+     * `auth c as c using c:`
+    */
+    if ((unsigned int)rms[0].rm_eo != data_len) {
         output->type = MTYPE_UNKNOWN;
     }
 

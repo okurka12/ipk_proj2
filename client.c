@@ -261,7 +261,7 @@ static int client_recv_tcp(struct client *client) {
 
         /* copy the message to a separate buffer `buf_single` */
         unsigned int msg_len = msg_end - buf;
-        memcpy(buf_single, buf, msg_len);  // + 2 ?
+        memcpy(buf_single, buf, msg_len);  // without the CRLF
         logf(DEBUG, "Processing message: '%s'", buf_single);
         /* main processing function */
         client_process_message(client, buf_single);
