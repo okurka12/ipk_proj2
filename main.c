@@ -11,6 +11,7 @@
 #include "utils.h"
 #include "server.h"
 #include "iota.h"
+#include "tcp_parse.h"
 
 
 int main(int argc, char **argv) {
@@ -32,5 +33,6 @@ int main(int argc, char **argv) {
 
     cleanup:
     free_argstruct(&args);
+    tcp_parse_free_resources();
     return rc;
 }

@@ -17,6 +17,7 @@
 #include <string.h>
 #include <assert.h>
 #include <regex.h>
+#include <stdlib.h>
 #include "tcp_parse.h"
 #include "utils.h"
 #include "iota.h"
@@ -41,6 +42,17 @@ log(ERROR, "couldn't compile regex")
     return NULL; \
 }
 
+/**
+ * Private struct for all the regex patterns
+*/
+struct regpatterns {
+    regex_t msg_pat;
+    regex_t reply_pat;
+    regex_t err_pat;
+    regex_t auth_pat;
+    regex_t bye_pat;
+};
+
 /* flags for regcomp */
 const int rflg = REG_ICASE | REG_EXTENDED;
 
@@ -50,104 +62,79 @@ static void check_ipk_constants() {
     static_assert(MAX_MSGCONT_LEN == 1400, IPK_CST_MSG);
 }
 
+static struct regpatterns *get_regpatterns(bool do_free) {
 
-// bool tcp_parse_reply(char *data, char **content, bool *err) {
-//     check_ipk_constants();
+    static struct regpatterns *output = NULL;
 
-//     int rc = 0;
-//     char errmsg[ERRMSG_BUFSIZE];
+    if (do_free) {
+        regfree(&output->msg_pat);
+        regfree(&output->reply_pat);
+        regfree(&output->err_pat);
+        regfree(&output->auth_pat);
+        regfree(&output->bye_pat);
+        free(output);
+        output = NULL;
+        return NULL;
+    }
 
-//     /* compile the regex */
-//     regex_t pattern;
-//     regcomp(&pattern, "REPLY (N?OK) IS ([ -~]{1,1400})", rflg);
-//     if (rc != 0) {
-//         regcomperr(errmsg, pattern);
-//         *err = true;
-//         *content = NULL;
-//         return false;
-//     }
+    if (output != NULL) {
+        return output;
+    }
 
-//     /* todo: register `pattern` in gexit? */
-
-//     /* try to match the regex */
-//     const size_t nmatch = 3;  // whole match, first group, second group
-//     regmatch_t rms[nmatch];
-//     rc = regexec(&pattern, data, nmatch, rms, 0);
-//     if (rc != 0) {
-//         log(WARNING, "couldn't match REPLY");
-//         regerror(rc, &pattern, errmsg, ERRMSG_BUFSIZE);
-//         fprintf(stderr, "regexec: %s", errmsg);
-//         *content = NULL;
-//         regfree(&pattern);
-//         return false;
-//     }
-
-//     /* change CR to null byte */
-//     data[rms[0].rm_eo] = '\0';
-
-//     /* return the content index in the original data */
-//     *content = data + rms[2].rm_so;
-
-//     // len("OK") is 2 and len("NOK") is 3
-//     bool reply_ok = rms[1].rm_eo - rms[1].rm_so == 2;
-
-//     logf(DEBUG, "successfully matched, reply_success=%d, content='%s'",
-//         reply_ok, *content);
-
-//     regfree(&pattern);
-//     return reply_ok;
-// }
-
-msg_t *tcp_parse_any(char *data, bool *err) {
     check_ipk_constants();
+    char errmsg[ERRMSG_BUFSIZE];
+    int rc;
+
+    output = malloc(sizeof(struct regpatterns));
+
+    rc = regcomp(&output->msg_pat, "MSG FROM ([!-~]{1,20}) IS ([ -~]{1,1400})", rflg);
+    if (rc != 0) {
+        regcomperr(errmsg, output->msg_pat);
+        return NULL;
+    }
+
+    /* only for the start of the string */
+    rc = regcomp(&output->reply_pat, "\\s*REPLY", rflg);
+    if (rc != 0) {
+        regcomperr(errmsg, output->reply_pat);
+        return NULL;
+    }
+
+    rc = regcomp(&output->err_pat, "ERR FROM ([!-~]{1,20}) IS ([ -~]{1,1400})", rflg);
+    if (rc != 0) {
+        regcomperr(errmsg, output->err_pat);
+        return NULL;
+    }
+
+    rc = regcomp(&output->auth_pat, "AUTH ([A-Z]|[a-z]|[0-9]|-){1,20} AS "
+    "([!-~]{1,20}) USING ([A-z]|[0-9]|-){1,128}", rflg);
+    if (rc != 0) {
+        regcomperr(errmsg, output->auth_pat);
+        return NULL;
+    }
+
+    rc = regcomp(&output->bye_pat, "BYE", rflg);
+    if (rc != 0) {
+        regcomperr(errmsg, output->bye_pat);
+        return NULL;
+    }
+
+    return output;
+}
+
+void tcp_parse_free_resources() {
+    get_regpatterns(true);
+}
+
+// bool tcp_parse_rep
+msg_t *tcp_parse_any(char *data, bool *err) {
 
     /* lets hope SIGINT wont come between regcomp and regfree :shrug: */
     logf(DEBUG, "parsing: '%s'", data);
 
-    int rc = 0;
-    char errmsg[ERRMSG_BUFSIZE];
-
-
-    regex_t msg_pat;
-    rc = regcomp(&msg_pat, "MSG FROM ([!-~]{1,20}) IS ([ -~]{1,1400})", rflg);
-    if (rc != 0) {
-        regcomperr(errmsg, msg_pat);
-        *err = true;
-        return NULL;
-    }
-
-    /* only for the start of the string? do the rest with tcp_parse_reply */
-    regex_t reply_pat;
-    rc = regcomp(&reply_pat, "\\s*REPLY", rflg);
-    if (rc != 0) {
-        regcomperr(errmsg, reply_pat);
-        *err = true;
-        return NULL;
-    }
-
-    regex_t err_pat;
-    rc = regcomp(&err_pat, "ERR FROM ([!-~]{1,20}) IS ([ -~]{1,1400})", rflg);
-    if (rc != 0) {
-        regcomperr(errmsg, err_pat);
-        *err = true;
-        return NULL;
-    }
-
-    regex_t auth_pat;
-    // rc = regcomp(&auth_pat, "AUTH ((?:[A-Z]|[a-z]|[0-9]|-){1,20}) AS "
-    // "([!-~]{1,20}) USING ((?:[A-z]|[0-9]|-){1,128})", rflg);
-    rc = regcomp(&auth_pat, "AUTH ([A-Z]|[a-z]|[0-9]|-){1,20} AS "
-    "([!-~]{1,20}) USING ([A-z]|[0-9]|-){1,128}", rflg);
-    if (rc != 0) {
-        regcomperr(errmsg, auth_pat);
-        *err = true;
-        return NULL;
-    }
-
-    regex_t bye_pat;
-    rc = regcomp(&bye_pat, "BYE", rflg);
-    if (rc != 0) {
-        regcomperr(errmsg, bye_pat);
+    struct regpatterns *rpats = get_regpatterns(false);
+    if (rpats == NULL) {
+        log(ERROR, "could not get regex patterns");
         *err = true;
         return NULL;
     }
@@ -159,7 +146,7 @@ msg_t *tcp_parse_any(char *data, bool *err) {
     output->type = MTYPE_UNKNOWN;
 
     /* MSG */
-    if (regexec(&msg_pat, data, nmatch, rms, 0) == 0) {
+    if (regexec(&rpats->msg_pat, data, nmatch, rms, 0) == 0) {
         data[rms[1].rm_eo] = '\0';  // displayname
         data[rms[2].rm_eo] = '\0';  // content
         // printf("%s: %s\n", data + rms[1].rm_so, data + rms[2].rm_so);
@@ -170,7 +157,7 @@ msg_t *tcp_parse_any(char *data, bool *err) {
         check_null(output->content);
 
     /* ERR */
-    } else if (regexec(&err_pat, data, nmatch, rms, 0) == 0) {
+    } else if (regexec(&rpats->err_pat, data, nmatch, rms, 0) == 0) {
         data[rms[1].rm_eo] = '\0';
         data[rms[2].rm_eo] = '\0';
         fprintf(stderr, "ERR FROM %s: %s\n", data + rms[1].rm_so,
@@ -181,17 +168,17 @@ msg_t *tcp_parse_any(char *data, bool *err) {
         check_null(output->dname);
         check_null(output->content);
     /* BYE */
-    } else if (regexec(&bye_pat, data, nmatch, rms, 0) == 0) {
+    } else if (regexec(&rpats->bye_pat, data, nmatch, rms, 0) == 0) {
         output->type = MTYPE_BYE;
 
     /* REPLY */
-    } else if (regexec(&reply_pat, data, nmatch, rms, 0) == 0) {
+    } else if (regexec(&rpats->reply_pat, data, nmatch, rms, 0) == 0) {
         output->type = MTYPE_REPLY;
         /* we dont need the fields because client should never send us
         REPLY anyway */
 
     /* AUTH */
-    } else if (regexec(&auth_pat, data, nmatch, rms, 0) == 0) {
+    } else if (regexec(&rpats->auth_pat, data, nmatch, rms, 0) == 0) {
         output->type = MTYPE_AUTH;
         data[rms[1].rm_eo] = '\0';  // username
         data[rms[2].rm_eo] = '\0';  // displayname
@@ -204,13 +191,6 @@ msg_t *tcp_parse_any(char *data, bool *err) {
         check_null(output->secret);
 
     }
-
-    regfree(&msg_pat);
-    regfree(&err_pat);
-    regfree(&reply_pat);
-    regfree(&err_pat);
-    regfree(&bye_pat);
-    regfree(&auth_pat);
 
     return output;
 }

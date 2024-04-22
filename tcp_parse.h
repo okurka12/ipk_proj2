@@ -63,4 +63,6 @@ bool tcp_parse_reply(char *data, char **content, bool *err);
 */
 msg_t *tcp_parse_any(char *data, bool *err);
 
+void tcp_parse_free_resources();
+
 #endif  // ifndef _T_C_P_P_A_R_S_E_H_
