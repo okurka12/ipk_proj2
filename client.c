@@ -229,7 +229,7 @@ static int client_recv_tcp(struct client *client) {
     if (strlen(client->tcp_incomplete_buf) > 0) {
 
         /* copy it to the main buffer and call recv with offset */
-        strncpy(buf_whole, client->tcp_incomplete_buf, tcp_bufsize);
+        strncpy(buf_whole, client->tcp_incomplete_buf, tcp_bufsize - 1);
         offset = strlen(client->tcp_incomplete_buf);
 
         /* now we can get rid of the incomplete buffer */
