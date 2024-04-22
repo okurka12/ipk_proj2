@@ -32,8 +32,7 @@ struct client {
     char *dname;
     bool authenticated;
     bool active;
-
-    const char *channel;
+    char *channel;
 
     /* always either an empty string or an incomplete message, never NULL */
     char *tcp_incomplete_buf;

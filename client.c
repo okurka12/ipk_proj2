@@ -52,11 +52,11 @@ struct client *client_ctor(
     c->active = true;
     c->todo = 0; // todo
     c->tcp_incomplete_buf = strdup("");
-    if (c->tcp_incomplete_buf == NULL) {
+    c->channel = strdup(DEFAULT_CHANNEL);
+    if (c->tcp_incomplete_buf == NULL or c->channel == NULL) {
         log(ERROR, MEMFAIL_MSG);
         return NULL;
     }
-    c->channel = DEFAULT_CHANNEL;
     logf(DEBUG, "%s:%hu connected (tcp)", c->address, c->port);
     return c;
 }
@@ -120,15 +120,39 @@ static int client_process_message(struct client *client, char *message) {
             };
             client_send(client, &reply_ok, false);
             free(client->dname);
-            client->dname = strdup(msg->dname);
+            client->dname = msg->dname;
+            msg->dname = NULL;  // so its not freed by msg_dtor
             client->authenticated = true;
-            if (client->dname == NULL) {
-                log(ERROR, MEMFAIL_MSG);
-                return 1;
-            }
             server_broadcast_join(
                 client->dname, DEFAULT_CHANNEL, client->sockfd);
         }
+        break;
+
+    case MTYPE_JOIN:;  // supress gcc warning with the :;
+
+        /* send reply ok */
+        msg_t reply_ok = {
+            .type = MTYPE_REPLY,
+            .result = 1,
+            .content = "join success"
+        };
+        client_send(client, &reply_ok, false);
+
+        /* change client channel, broadcast leave */
+        char *original_channel = client->channel;
+        client->channel = msg->chid;
+        msg->chid = NULL;  // so its not freed by msg_dtor
+        server_broadcast_leave(client->dname, original_channel);
+        free(original_channel);
+        original_channel = NULL;
+
+        /* change client dname, broadcast join */
+        free(client->dname);
+        client->dname = msg->dname;
+        msg->dname = NULL;  // so its not freed by msg_dtor
+        logf(DEBUG, "%s's channel is now %s", client->dname, client->channel);
+        server_broadcast_join(client->dname, client->channel, client->sockfd);
+
         break;
 
     case MTYPE_BYE:
@@ -261,6 +285,9 @@ int client_send(struct client *client, const msg_t *msg, bool auth) {
             return 0;
         }
     }
+    printf("SENT %s:%hu | %s\n", client->address, client->port,
+        mtype_str(msg->type));
+    fflush(stdout);  // just to be sure
 
     return 1;
 }
@@ -273,6 +300,7 @@ void client_dtor(struct client **client) {
     free(c->address);
     free(c->dname);
     free(c->tcp_incomplete_buf);
+    free(c->channel);
     free(c);
     *client = NULL;
 }

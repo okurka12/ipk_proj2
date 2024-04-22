@@ -29,7 +29,7 @@
 `ERRMSG_BUFSIZE` and a regex_t object `rgp`  */
 #define regcomperr(errmsgbuf, rgp) log(ERROR, "couldn't compile regex"); \
 regerror(rc, &rgp, errmsg, ERRMSG_BUFSIZE); \
-fprintf(stderr, "regexec: %s", errmsg); \
+fprintf(stderr, "regexec: %s\n", errmsg); \
 log(ERROR, "couldn't compile regex")
 
 #define IPK_CST_MSG "sadly, these constants are hard-coded here, if you " \
@@ -51,6 +51,7 @@ struct regpatterns {
     regex_t err_pat;
     regex_t auth_pat;
     regex_t bye_pat;
+    regex_t join_pat;
 };
 
 /* flags for regcomp */
@@ -66,12 +67,18 @@ static struct regpatterns *get_regpatterns(bool do_free) {
 
     static struct regpatterns *output = NULL;
 
+    if (do_free and output == NULL) {
+        /* do nothing */
+        return NULL;
+    }
+
     if (do_free) {
         regfree(&output->msg_pat);
         regfree(&output->reply_pat);
         regfree(&output->err_pat);
         regfree(&output->auth_pat);
         regfree(&output->bye_pat);
+        regfree(&output->join_pat);
         free(output);
         output = NULL;
         return NULL;
@@ -106,14 +113,20 @@ static struct regpatterns *get_regpatterns(bool do_free) {
         return NULL;
     }
 
-    rc = regcomp(&output->auth_pat, "AUTH ([A-Z]|[a-z]|[0-9]|-){1,20} AS "
-    "([!-~]{1,20}) USING ([A-z]|[0-9]|-){1,128}", rflg);
+    rc = regcomp(&output->auth_pat, "AUTH ([A-Za-z0-9-]{1,20}) AS "
+    "([!-~]{1,20}) USING ([A-Za-z0-9-]{1,128})", rflg);
     if (rc != 0) {
         regcomperr(errmsg, output->auth_pat);
         return NULL;
     }
 
     rc = regcomp(&output->bye_pat, "BYE", rflg);
+    if (rc != 0) {
+        regcomperr(errmsg, output->bye_pat);
+        return NULL;
+    }
+
+    rc = regcomp(&output->join_pat, "JOIN ([A-Za-z0-9-]{1,20}) AS ([!-~]{1,20})", rflg);
     if (rc != 0) {
         regcomperr(errmsg, output->bye_pat);
         return NULL;
@@ -190,6 +203,14 @@ msg_t *tcp_parse_any(char *data, bool *err) {
         check_null(output->dname);
         check_null(output->secret);
 
+    } else if (regexec(&rpats->join_pat, data, nmatch, rms, 0) == 0) {
+        output->type = MTYPE_JOIN;
+        data[rms[1].rm_eo] = '\0';  // channel id
+        data[rms[2].rm_eo] = '\0';  // displayname
+        output->chid  = strdup(data + rms[1].rm_so);
+        output->dname = strdup(data + rms[2].rm_so);
+        check_null(output->chid);
+        check_null(output->dname);
     }
 
     return output;
