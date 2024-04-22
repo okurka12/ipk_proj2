@@ -16,17 +16,19 @@ LOGLEVEL=-DLOGLEVEL=DEBUG
 ASAN=-fsanitize=address
 
 # uncomment this so that server.c broadcasts join even to the person joined
-DBROAD=-DBROAD
+# DBROAD=-DBROAD
 
 RESULT_BINARY=ipk24chat-server
 
 CC=gcc
 
-CFLAGS=-Wall -Wextra -pedantic -std=c11 -g -Og $(LOGLEVEL) $(DNDEBUG) $(ASAN)
+CFLAGS=-Wall -Wextra -pedantic -std=c11 -g -Og $(LOGLEVEL) $(DNDEBUG) \
+$(ASAN) $(DBROAD)
 
 LDFLAGS=$(ASAN) # -lpthread
 
-MODULES=main.o argparse.o server.o client.o clientlist.o msg.o tcp_parse.o tcp_render.o
+MODULES=main.o argparse.o server.o client.o clientlist.o msg.o tcp_parse.o \
+tcp_render.o
 
 .PHONY: ALL
 ALL: $(RESULT_BINARY)
