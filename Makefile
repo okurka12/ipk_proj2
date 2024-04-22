@@ -13,7 +13,7 @@ LOGLEVEL=-DLOGLEVEL=DEBUG
 # DNDEBUG=-DNDEBUG
 
 # uncomment this to enable adress sanitizer
-ASAN=-fsanitize=address
+# ASAN=-fsanitize=address
 
 # uncomment this so that server.c broadcasts join even to the person joined
 # DBROAD=-DBROAD
@@ -52,7 +52,7 @@ server.h argparse.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 server.o: server.c server.h argparse.h client.h utils.h client.h \
-clientlist.h server.h argparse.h client.h msg.h
+clientlist.h server.h argparse.h client.h msg.h iota.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clientlist.o: clientlist.c clientlist.h server.h argparse.h client.h \
