@@ -39,6 +39,9 @@ struct client {
 
     /* queue for unconfirmed udp messages*/
     int todo;
+
+    /* data for which messages we saw from this client */
+    int32_t *udpm_data;
 };
 
 /**
@@ -63,6 +66,12 @@ int client_recv(struct client *client);
  * @return 0 on success, else 1
 */
 int client_send(struct client *client, const msg_t *msg, bool auth);
+
+/**
+ * AUTH comes to welcome socket so we need to have a special function
+ * @return 0 on success, else 1
+*/
+int client_udp_auth(struct client *client, msg_t *authmsg);
 
 
 /**

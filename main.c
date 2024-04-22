@@ -12,6 +12,7 @@
 #include "server.h"
 #include "iota.h"
 #include "tcp_parse.h"
+#include "udp_marker.h"
 
 
 int main(int argc, char **argv) {
@@ -32,6 +33,7 @@ int main(int argc, char **argv) {
     rc = start_server(&args);
 
     cleanup:
+    udpm_welcome_free_res();
     free_argstruct(&args);
     tcp_parse_free_resources();
     return rc;

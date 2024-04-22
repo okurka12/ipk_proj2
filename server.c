@@ -19,6 +19,10 @@
 #include "client.h"
 #include "clientlist.h"
 #include "iota.h"
+#include "udp_parse.h"
+#include "udp_marker.h"
+
+#define UDP_BUFSIZE 70000
 
 static int epollfd = -1;
 static int add_sock_to_epoll(int sockfd, int epollfd, void *p);
@@ -226,9 +230,78 @@ static int add_sock_to_epoll(int sockfd, int epollfd, void *p) {
 }
 
 /**
- * return 0 on success else 1
+ * @return 0 on success else 1
 */
-static int handle_socket_event(struct epoll_event *event, int tcpfd, int udpfd) {
+static int handle_udp_welcome_socket(int sockfd) {
+    char *buf = calloc(UDP_BUFSIZE, 1);
+    msg_t *msg = NULL;
+    if (buf == NULL) {
+        log(ERROR, MEMFAIL_MSG);
+        return 1;
+    }
+    struct sockaddr_in addr;
+    socklen_t addrlen = sizeof(addr);
+    int received_bytes = recvfrom(sockfd, buf, UDP_BUFSIZE, 0, (struct sockaddr *)&addr, &addrlen);
+    if (received_bytes == -1) {
+        log(ERROR, "recvfrom returned -1");
+        perror("recvfrom");
+        return 1;
+    }
+    uint8_t type = buf[0];
+
+    /* we shouldn't even receive confirm on the welcome socket but still */
+    if (type == MTYPE_CONFIRM) {
+        goto cleanup;
+    } else {  // send confirm
+        char confirm_buf[3];
+        confirm_buf[0] = MTYPE_CONFIRM;
+        confirm_buf[1] = buf[1];
+        confirm_buf[2] = buf[2];
+        sendto(sockfd, confirm_buf, 3, 0, (struct sockaddr *)&addr, addrlen);
+    }
+
+    uint16_t id = get_id(buf + 1);
+    uint32_t from_addr = addr.sin_addr.s_addr;
+    uint16_t from_port = addr.sin_port;
+
+    if (udpm_welcome_seen(id, from_addr, from_port)) {
+        goto cleanup;  // i.e. do nothing
+    }
+    udpm_welcome_mark(id, from_addr, from_port);
+
+
+    msg = udp_parse(buf);
+    int client_fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (client_fd == -1) {
+        log(ERROR, "couldn't create new udp socket for client");
+        return 1;
+    }
+    struct client *client_data = client_ctor(client_fd, T_UDP, &addr);
+    if (client_data == NULL) {
+        log(ERROR, "couldn't initialize client data");
+        return 1;
+    }
+    int rc = add_sock_to_epoll(client_fd, epollfd, (void *)client_data);
+    if (rc == 1) {
+        log(ERROR, "something went wrong");
+        return 1;
+    }
+
+    client_udp_auth(client_data, msg);
+
+
+    cleanup:
+    msg_dtor(msg);
+    free(buf);
+    return 0;
+}
+
+/**
+ * @return 0 on success else 1
+*/
+static int handle_socket_event(
+    struct epoll_event *event, int tcpfd, int udpfd
+) {
 
     /* what would life be without a little of type unsafety */
     int eventfd = ((struct sockdata *)event->data.ptr)->fd;
@@ -244,7 +317,7 @@ static int handle_socket_event(struct epoll_event *event, int tcpfd, int udpfd) 
 
     } else if (eventfd == udpfd) {
         log(DEBUG, "udp welcome socket event");
-        /* todo: recvfrom here */
+        handle_udp_welcome_socket(udpfd);
     } else {
         client_recv(((struct sockdata *)event->data.ptr)->data);
     }
@@ -255,6 +328,8 @@ static int handle_socket_event(struct epoll_event *event, int tcpfd, int udpfd) 
 int start_server(struct args *args) {
 
     logf(INFO, "starting server at %s:%hu", args->laddr, args->port);
+
+    /* udp marker data for the welcome socket */
 
     int rc;
 

@@ -28,7 +28,7 @@ $(ASAN) $(DBROAD)
 LDFLAGS=$(ASAN) # -lpthread
 
 MODULES=main.o argparse.o server.o client.o clientlist.o msg.o tcp_parse.o \
-tcp_render.o udp_parse.o udp_marker.o
+tcp_render.o udp_parse.o udp_marker.o udp_render.o
 
 .PHONY: ALL
 ALL: $(RESULT_BINARY)
@@ -48,7 +48,7 @@ argparse.o: argparse.c argparse.h utils.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 client.o: client.c client.h utils.h tcp_parse.h tcp_render.h msg.h iota.h \
-server.h argparse.h
+server.h argparse.h udp_render.h udp_parse.h udp_marker.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 server.o: server.c server.h argparse.h client.h utils.h client.h \
@@ -73,7 +73,10 @@ udp_parse.o: udp_parse.c udp_parse.h msg.h msg.h utils.h tcp_parse.h msg.h \
 tcp_render.h msg.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-udp_marker.o: udp_marker.c udp_marker.h- utils.h
+udp_marker.o: udp_marker.c udp_marker.h utils.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+udp_render.o: udp_render.c udp_render.h msg.h utils.h msg.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 
