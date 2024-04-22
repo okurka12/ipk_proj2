@@ -14,6 +14,14 @@ Here are limitations of the current implementation that I know of.
 - UDP retransmitting
 - sweep inactive clients between socket events (`clientlist.c`)
 
+## [0.9.1] - 2024-04-22
+
+Version as of commit `036fc6e92acbb5bddd94fe289be6933ba2b20b6e`
+
+### Fixes
+
+- fixed a buffer overflow vulnerability in `client.c`
+
 ## [0.9.0] - 2024-04-22
 
 Version as of commit `e6e0c856573b13a4a126e90119674f1b5135e043`
