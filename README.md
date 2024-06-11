@@ -5,7 +5,10 @@ for the second project for the **IPK** course. This assignment variant has
 codename **IOTA**.
 
 Author: Vit Pavlik (`xpavli0a`)
+
 Date: April 22nd, 2024
+
+See the assignment here: https://git.fit.vutbr.cz/NESFIT/IPK-Projects-2024/src/branch/master/Project%202/iota
 
 ## Build instructions
 
